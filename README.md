@@ -5,7 +5,7 @@ hold — and get back its **shape** and the **slice you asked for**, never the w
 for a web page and lens does for a source file, prism does for structured data.
 
 Part of [tools-for-agents](https://github.com/tools-for-agents). Zero dependencies — the Node standard
-library and nothing else. CLI + MCP.
+library and nothing else. CLI + web view + MCP.
 
 ---
 
@@ -75,8 +75,16 @@ Every clipped or empty answer carries the size of the whole (`"withheld": 9960`,
 node --version          # 22+; nothing to npm install
 npm test                # node --test
 node src/cli.js shape package.json
+node src/cli.js serve   # the web view → http://localhost:7970 (paste a blob, explore its shape)
 npm run mcp             # the MCP server, stdio JSON-RPC
 ```
+
+### The web view
+
+`prism serve [--port 7970]` opens a single-file explorer: paste a JSON/JSONL blob (or point at a file or
+URL), see its **shape** as a collapsible tree, click any node to **read** the value at its path
+(token-budgeted), and **find** a key or value across the whole document. It holds one document in RAM —
+no store, nothing written to disk.
 
 ### MCP
 

@@ -1,7 +1,7 @@
 # AGENTS.md — prism
 
 🔻 **The agent's data reader.** Any JSON/JSONL blob becomes its shape and the slice you asked for, not the
-whole thing. What scout does for the web and lens does for code, prism does for structured data. CLI + MCP.
+whole thing. What scout does for the web and lens does for code, prism does for structured data. CLI + web + MCP.
 Part of [tools-for-agents](https://github.com/tools-for-agents).
 
 ## Setup
@@ -12,6 +12,7 @@ npm test                                         # = node --test
 echo '{"a":{"b":[1,2,3]}}' | node src/cli.js shape -
 node src/cli.js read data.json --path 'items[*].id'
 node src/cli.js find config.json "timeout"
+node src/cli.js serve                             # the web view → http://localhost:7970
 npm run mcp                                       # the MCP server, stdio
 ```
 
@@ -58,9 +59,17 @@ the original code: every bound is proven by building an input that overruns it. 
 server over stdio — a bug that only appears through the protocol layer (like a spread `undefined` clobbering
 a default and returning zero hits) is caught there, not in the core.
 
+## The web view
+
+`prism serve` (`src/server.js` + single-file `public/index.html`) holds ONE document in RAM — no store,
+nothing on disk. It is dark-committed on the kit design system (`tokens: kit` — the type scale, 4px grid,
+{4,8,12,999} radii, 4.5:1 contrast), so it passes the strict `look` gate. The tree rows are real controls:
+keyboard-reachable (`tabindex`/`role`/Enter-Space) with a focus ring — iris caught them clickable-but-not-
+reachable on the first look, and caught a render wiping the welcome node from under an async restore.
+
 ## CI
 
-`test` — and none of its tests may be skipped.
+`test` · `adversarial` · `look` (a loaded document) · `first-run` (the empty welcome state) — and no test
+may be skipped.
 
-*(No web view yet — when one lands, it gets [iris](https://github.com/tools-for-agents/iris) `look` gates
-like the rest of the kit, plus a `mutants` gate over `src/core.js`.)*
+*(Still to reach full kit parity: a `mutants` gate over `src/core.js` and a `publish.yml`.)*
