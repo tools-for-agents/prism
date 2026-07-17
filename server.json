@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.tools-for-agents/prism",
+  "description": "The agent's data reader: any JSON/JSONL blob becomes its shape and the slice you asked for, not the whole thing.",
+  "version": "0.1.0",
+  "websiteUrl": "https://tools-for-agents.github.io",
+  "repository": {
+    "url": "https://github.com/tools-for-agents/prism",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@tools-for-agents/prism",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
+    }
+  ]
+}

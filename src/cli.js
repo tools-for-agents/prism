@@ -50,6 +50,13 @@ const HELP = `prism — read structured data the way an agent needs it: the shap
 try {
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') { out(HELP); process.exit(0); }
 
+  // `prism mcp` = the stdio JSON-RPC server (so `npx @tools-for-agents/prism mcp` works, matching
+  // the kit's other CLIs). It must run BEFORE readSource, which would otherwise consume the same
+  // stdin the server needs for its JSON-RPC stream. The server starts on import and stays alive.
+  if (cmd === 'mcp') {
+    await import('../mcp/mcp-server.js');
+  } else {
+
   const src = positionals[0] ?? '-';
   const o = opts();
   const { text, bytes, source } = await readSource(src, o);
@@ -74,6 +81,8 @@ try {
     console.error(`prism: unknown command "${cmd}"\n`);
     out(HELP);
     process.exit(2);
+  }
+
   }
 } catch (e) {
   if (e instanceof PrismError) { console.error(`prism: ${e.message}`); process.exit(1); }

@@ -30,6 +30,22 @@ function rpc(messages) {
 }
 const byId = (out, id) => out.find((m) => m.id === id);
 
+test('the `mcp` CLI subcommand boots the same server (the path `npx … mcp` and the packaged gate use)', async () => {
+  // The published bin is `prism`; agents reach the server via `prism mcp`. This must speak JSON-RPC
+  // on a clean stdout — and it must run BEFORE the CLI tries to read a data source from stdin.
+  const p = spawn('node', [fileURLToPath(new URL('../src/cli.js', import.meta.url)), 'mcp'], { stdio: ['pipe', 'pipe', 'ignore'] });
+  const out = [];
+  let buf = '';
+  p.stdout.on('data', (d) => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); if (l.trim()) out.push(JSON.parse(l)); } });
+  p.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize' }) + '\n');
+  p.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }) + '\n');
+  await new Promise((r) => setTimeout(r, 400));
+  p.stdin.end(); p.kill();
+  const list = out.find((m) => m.id === 2);
+  assert.ok(list, 'the mcp subcommand must answer tools/list on clean stdout');
+  assert.deepEqual(list.result.tools.map((t) => t.name).sort(), ['prism_find', 'prism_read', 'prism_shape']);
+});
+
 test('initialize announces the prism server and tools/list returns the three tools with annotations', async () => {
   const out = await rpc([
     { jsonrpc: '2.0', id: 1, method: 'initialize' },
