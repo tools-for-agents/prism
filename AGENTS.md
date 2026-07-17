@@ -20,11 +20,12 @@ npm run mcp                                       # the MCP server, stdio
 gives you `fetch`, a test runner, and everything else this needs. If a feature seems to *need* a library,
 the feature is too big — ship the smaller version.
 
-## The three verbs
+## The four verbs
 
 - `shape <src>` — the skeleton: keys→types, array lengths, nesting.
 - `read <src> --path P` — the subtree at path `P`, token-budgeted.
 - `find <src> "<query>"` — the **paths** where a key/value lives (the input to `read`).
+- `diff <a> <b>` — the **paths** that changed between two blobs (added / removed / changed), by structure not by text; node- and hit-bounded, summary counts always complete.
 
 `<src>` is a file, an `http(s)` URL, or `-` (stdin). Paths: `data.items[0].name`, `users[*].id`, `$`.
 

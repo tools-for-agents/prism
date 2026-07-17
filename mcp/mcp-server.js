@@ -4,7 +4,7 @@
 // whole thing. Pairs with scout (read the web) and lens (read code): prism reads DATA. Every call is
 // byte-capped, depth-capped and token-budgeted, because it reads untrusted input.
 import { createInterface } from 'node:readline';
-import { shape, read, find, DEFAULTS } from '../src/core.js';
+import { shape, read, find, diff, DEFAULTS } from '../src/core.js';
 import { readSource, parseData, PrismError, human } from '../src/load.js';
 
 const PROTOCOL = '2024-11-05';
@@ -73,6 +73,30 @@ const tools = [
     }, required: ['query'] },
     run: async (a) => { const { value, o } = await resolveValue(a); if (a.k != null) o.maxHits = Math.floor(a.k); return find(value, a.query, o); },
   },
+  {
+    name: 'prism_diff',
+    description: 'Compare TWO JSON/JSONL blobs and get back the PATHS that changed — added, removed, or a scalar that moved — with a summary count of each. It walks the structure (objects by key, arrays by index; a value that changed type counts as changed), NOT a line diff of the pretty-printed text, so a reordered or reformatted-but-equal document reads as identical. Node- and hit-bounded. Use it to see what differs between two API responses, two configs, or a before and after.',
+    inputSchema: { type: 'object', properties: {
+      left: { type: 'string', description: 'The first (before) JSON or JSONL blob, inline.' },
+      right: { type: 'string', description: 'The second (after) JSON or JSONL blob, inline.' },
+      max_bytes: { type: 'integer', description: `Refuse either blob if larger than this many bytes (default ${DEFAULTS.maxBytes}).` },
+      format: { type: 'string', enum: ['json', 'jsonl'], description: 'Force the parse format for both blobs; by default each is auto-detected.' },
+      k: { type: 'integer', description: `Max changes to return (default ${DEFAULTS.maxHits}); the summary counts are always complete.` },
+    }, required: ['left', 'right'] },
+    run: async (a) => {
+      const o = {};
+      if (a.max_bytes != null) o.maxBytes = Math.floor(a.max_bytes);
+      if (a.format) o.format = a.format;
+      if (a.k != null) o.maxHits = Math.floor(a.k);
+      const cap = o.maxBytes ?? DEFAULTS.maxBytes;
+      const parseSide = (s, side) => {
+        const text = String(s);
+        if (Buffer.byteLength(text) > cap) throw new PrismError(`the ${side} blob is ${human(Buffer.byteLength(text))}; prism caps input at ${human(cap)}.`);
+        return parseData(text, o).value;
+      };
+      return diff(parseSide(a.left, 'left'), parseSide(a.right, 'right'), o);
+    },
+  },
 ];
 
 // Every prism tool only READS, and every one returns content derived from data outside our trust
@@ -83,6 +107,7 @@ const ANNOTATIONS = {
   prism_shape: { readOnlyHint: true, openWorldHint: true },
   prism_read: { readOnlyHint: true, openWorldHint: true },
   prism_find: { readOnlyHint: true, openWorldHint: true },
+  prism_diff: { readOnlyHint: true, openWorldHint: true },
 };
 
 const toolMap = Object.fromEntries(tools.map((t) => [t.name, t]));

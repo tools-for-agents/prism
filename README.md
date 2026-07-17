@@ -42,13 +42,14 @@ prism read  users.json --path 'data.users[*].email'   # every email, and nothing
 prism find  config.json "timeout"                       # where does 'timeout' live? → the paths
 ```
 
-## The three verbs
+## The four verbs
 
 | Command | Gives you | For |
 |---|---|---|
 | `prism shape <src>` | the skeleton: keys→types, array lengths, nesting | seeing the structure of a blob you've never met |
 | `prism read <src> --path P` | the subtree at path `P`, token-budgeted | pulling out just the part you need |
 | `prism find <src> "<q>"` | the **paths** where a key/value lives | locating something in a big document |
+| `prism diff <a> <b>` | the **paths** that changed — added / removed / changed | what differs between two responses, configs, or a before and after |
 
 **Sources** (`<src>`): a file path, an `http(s)://` URL, or `-` for stdin. **Paths**: `data.items[0].name`,
 `users[*].id` (`[*]` maps over an array), `$` for the root. JSON and JSONL/NDJSON are both auto-detected.
@@ -88,7 +89,7 @@ no store, nothing written to disk.
 
 ### MCP
 
-Three tools — `prism_shape`, `prism_read`, `prism_find` — each read-only and open-world. Pass a blob inline
+Four tools — `prism_shape`, `prism_read`, `prism_find`, `prism_diff` — each read-only and open-world. Pass a blob inline
 as `data`, or point at a file/URL with `source`:
 
 ```json

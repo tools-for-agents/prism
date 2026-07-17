@@ -1,5 +1,5 @@
 // prism MCP test — drive the real server over stdio and assert the protocol contract: it lists the
-// three tools with annotations, enforces required args, validates types, runs a call end-to-end, and
+// four tools with annotations, enforces required args, validates types, runs a call end-to-end, and
 // hands an expected failure (a syntax error) back as a tool result rather than crashing the stream.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,17 +43,17 @@ test('the `mcp` CLI subcommand boots the same server (the path `npx … mcp` and
   p.stdin.end(); p.kill();
   const list = out.find((m) => m.id === 2);
   assert.ok(list, 'the mcp subcommand must answer tools/list on clean stdout');
-  assert.deepEqual(list.result.tools.map((t) => t.name).sort(), ['prism_find', 'prism_read', 'prism_shape']);
+  assert.deepEqual(list.result.tools.map((t) => t.name).sort(), ['prism_diff', 'prism_find', 'prism_read', 'prism_shape']);
 });
 
-test('initialize announces the prism server and tools/list returns the three tools with annotations', async () => {
+test('initialize announces the prism server and tools/list returns the four tools with annotations', async () => {
   const out = await rpc([
     { jsonrpc: '2.0', id: 1, method: 'initialize' },
     { jsonrpc: '2.0', id: 2, method: 'tools/list' },
   ]);
   assert.equal(byId(out, 1).result.serverInfo.name, 'prism');
   const tools = byId(out, 2).result.tools;
-  assert.deepEqual(tools.map((t) => t.name).sort(), ['prism_find', 'prism_read', 'prism_shape']);
+  assert.deepEqual(tools.map((t) => t.name).sort(), ['prism_diff', 'prism_find', 'prism_read', 'prism_shape']);
   for (const t of tools) assert.equal(t.annotations.readOnlyHint, true, `${t.name} must declare readOnly`);
 });
 
@@ -82,6 +82,24 @@ test('prism_find over MCP returns real hits (default maxHits must survive the MC
   assert.equal(payload.matched, 1);
   assert.equal(payload.hits.length, 1);
   assert.equal(payload.hits[0].path, 'config.timeout_ms');
+});
+
+test('prism_diff over MCP compares two inline blobs and summarises the change', async () => {
+  const out = await rpc([{ jsonrpc: '2.0', id: 1, method: 'tools/call', params: {
+    name: 'prism_diff', arguments: { left: '{"a":1,"b":2}', right: '{"a":1,"b":9,"c":3}' } } }]);
+  const payload = JSON.parse(byId(out, 1).result.content[0].text);
+  assert.equal(payload.changed, 1);
+  assert.equal(payload.added, 1);
+  assert.equal(payload.identical, false);
+  const by = Object.fromEntries(payload.changes.map((c) => [c.path, c.kind]));
+  assert.equal(by.b, 'changed');
+  assert.equal(by.c, 'added');
+});
+
+test('prism_diff requires both sides — a missing `right` is refused by the schema', async () => {
+  const out = await rpc([{ jsonrpc: '2.0', id: 1, method: 'tools/call', params: {
+    name: 'prism_diff', arguments: { left: '{"a":1}' } } }]);
+  assert.match(byId(out, 1).error.message, /missing required argument.*right/);
 });
 
 test('a missing required argument is refused by the schema, not run', async () => {

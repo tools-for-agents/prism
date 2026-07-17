@@ -84,6 +84,30 @@ const CANARIES = [
     into: "if (false) return { query: String(query ?? ''), hits: [], matched: 0, error: 'empty query' };",
   },
   {
+    why: 'diff must NAME an added key as added — miss the "only in b" case and a new field is mislabelled a change of something that was not there',
+    file: 'src/core.js',
+    find: "if (!(key in a)) record('added', p, undefined, b[key]);",
+    into: "if (false) record('added', p, undefined, b[key]);",
+  },
+  {
+    why: 'diff compares arrays by index — an element present only in the LONGER array is an addition at that position, not a change',
+    file: 'src/core.js',
+    find: 'if (i >= a.length) record(\'added\', p, undefined, b[i]);',
+    into: 'if (false) record(\'added\', p, undefined, b[i]);',
+  },
+  {
+    why: 'diff caps the changes it RETURNS while keeping the summary counts complete — remove the cap and two very different blobs flood back thousands of rows',
+    file: 'src/core.js',
+    find: 'if (changes.length < o.maxHits) {',
+    into: 'if (true) {',
+  },
+  {
+    why: 'diff must STOP after maxNodes — an unbounded walk over two adversarial blobs is a DoS just like an unbounded find',
+    file: 'src/core.js',
+    find: 'if (visited++ >= o.maxNodes) { truncated = true; return; }',
+    into: 'if (false) { truncated = true; return; }',
+  },
+  {
     why: 'an oversized file is refused BEFORE it is read — skip the size check and a 2 GB file is read into memory and freezes the process (JSON.parse is all-or-nothing)',
     file: 'src/load.js',
     find: 'if (st.size > cap) {',

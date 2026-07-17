@@ -265,6 +265,68 @@ export function find(value, query, opts = {}) {
   };
 }
 
+// ── diff: what changed between two blobs ─────────────────────────────────────
+// Two responses, two configs, a before and an after: prism_diff walks both trees together and
+// returns the PATHS that changed — added, removed, or a scalar that moved — not a line diff of the
+// pretty-printed text (which is noisy and reorders on a whitespace change). Bounded the same way find
+// is: it visits at most maxNodes and returns at most maxHits changes, so diffing two adversarial
+// blobs is not itself the DoS. Objects compare by key, arrays by index (a[0] vs b[0]); a value that
+// changed type counts as changed, not as one add and one remove.
+export function diff(left, right, opts = {}) {
+  const o = { ...DEFAULTS, ...opts };
+  const changes = [];
+  const counts = { added: 0, removed: 0, changed: 0 };
+  let visited = 0, truncated = false;
+
+  const record = (kind, path, from, to) => {
+    counts[kind]++;
+    if (changes.length < o.maxHits) {
+      const c = { path, kind };
+      if (kind !== 'added') c.from = previewOf(from);
+      if (kind !== 'removed') c.to = previewOf(to);
+      changes.push(c);
+    }
+  };
+
+  const walk = (a, b, path) => {
+    if (truncated) return;
+    if (visited++ >= o.maxNodes) { truncated = true; return; }
+    const ka = kindOf(a), kb = kindOf(b);
+    if (ka !== kb) { record('changed', path, a, b); return; }   // e.g. string → object
+    if (ka === 'object') {
+      for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+        if (truncated) break;
+        const p = path === '$' ? key : `${path}.${key}`;
+        if (!(key in a)) record('added', p, undefined, b[key]);
+        else if (!(key in b)) record('removed', p, a[key], undefined);
+        else walk(a[key], b[key], p);
+      }
+    } else if (ka === 'array') {
+      const n = Math.max(a.length, b.length);
+      for (let i = 0; i < n; i++) {
+        if (truncated) break;
+        const p = `${path}[${i}]`;
+        if (i >= a.length) record('added', p, undefined, b[i]);
+        else if (i >= b.length) record('removed', p, a[i], undefined);
+        else walk(a[i], b[i], p);
+      }
+    } else if (a !== b) {
+      record('changed', path, a, b);   // two scalars that differ
+    }
+  };
+
+  walk(left, right, '$');
+  const total = counts.added + counts.removed + counts.changed;
+  return {
+    identical: total === 0 && !truncated,
+    total, added: counts.added, removed: counts.removed, changed: counts.changed,
+    returned: changes.length,
+    ...(total > changes.length ? { withheld: total - changes.length } : {}),
+    ...(truncated ? { truncated: true, note: `stopped after visiting ${visited} nodes — there may be more differences` } : {}),
+    changes,
+  };
+}
+
 function scalarMatches(v, qLower) {
   if (typeof v === 'string') return v.toLowerCase().includes(qLower);
   return String(v).toLowerCase() === qLower; // numbers/bools: exact, so "1" doesn't match "1000"

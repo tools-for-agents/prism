@@ -5,7 +5,7 @@
 //   prism find  <file|url|-> "<query>"  where a key/value lives → the paths to read
 // Flags: --path <p> · --tokens <n> (read budget) · --max-bytes <n> · --depth <n> · --keys <n>
 //        --format json|jsonl · -k/--limit <n> (find hits) · --raw (print value only, no envelope)
-import { shape, read, find } from './core.js';
+import { shape, read, find, diff } from './core.js';
 import { readSource, parseData, PrismError, human } from './load.js';
 
 const [, , cmd, ...rest] = process.argv;
@@ -38,6 +38,7 @@ const HELP = `prism — read structured data the way an agent needs it: the shap
   prism shape <file|url|->            the skeleton: keys→types, array lengths, nesting
   prism read  <file|url|-> --path P   the subtree at path P (token-budgeted; over budget → its shape)
   prism find  <file|url|-> "<query>"  where a key or value lives → the paths to read
+  prism diff  <a> <b>                 what changed between two blobs → the paths (added/removed/changed)
 
   paths:  data.items[0].name   ·   users[*].id   ·   $ (the root)
   flags:  --path P  --tokens N (read budget)  --depth N  --keys N  --max-bytes N
@@ -62,6 +63,13 @@ try {
     // the data-reader web view — a local http server that holds one blob in RAM (no store, no disk)
     const { serve } = await import('./server.js');
     serve(flags['--port'] != null ? Math.floor(+flags['--port']) : undefined);
+  } else if (cmd === 'diff') {
+    // compare TWO blobs → the paths that changed. Two sources, not one, so it is handled here.
+    if (positionals.length < 2) { console.error('prism: diff needs two sources — e.g. `prism diff before.json after.json`'); process.exit(2); }
+    const o = opts();
+    const A = await readSource(positionals[0], o); const av = parseData(A.text, o).value;
+    const B = await readSource(positionals[1], o); const bv = parseData(B.text, o).value;
+    out(diff(av, bv, o));
   } else {
 
   const src = positionals[0] ?? '-';
