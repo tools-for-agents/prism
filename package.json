@@ -1,0 +1,44 @@
+{
+  "name": "@tools-for-agents/prism",
+  "version": "0.1.0",
+  "description": "The agent's data reader: any JSON/JSONL blob becomes its shape and the slice you asked for, not the whole thing.",
+  "type": "module",
+  "bin": {
+    "prism": "src/cli.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "mcp": "node mcp/mcp-server.js",
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "mcpName": "io.github.tools-for-agents/prism",
+  "files": [
+    "src",
+    "mcp",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tools-for-agents/prism.git"
+  },
+  "homepage": "https://tools-for-agents.github.io",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "ai-agents",
+    "agent-tools",
+    "claude",
+    "llm",
+    "json",
+    "jsonl",
+    "zero-dependency",
+    "prism"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

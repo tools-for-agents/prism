@@ -1,0 +1,63 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      # IN CI, A SKIPPED TEST IS A FAILED TEST.
+      #
+      # CI is the one place where every dependency is meant to be present, so a skip here does not
+      # mean "not applicable" — it means a guard fired that should not have, and nobody reads
+      # "skipped". This is the net under that. (anvil shipped `pass 11 · skipped 9`, green, for the
+      # life of the project because a broken sandbox switched off the very tests that would catch it.)
+      - name: run the tests — and none of them may be skipped
+        run: |
+          node --test 2>&1 | tee "$RUNNER_TEMP/test.txt"
+          code=${PIPESTATUS[0]}
+          test "$code" -eq 0 || exit $code
+          n=$(grep -oE '^# skipped [0-9]+|^. skipped [0-9]+' "$RUNNER_TEMP/test.txt" | grep -oE '[0-9]+$' | head -1)
+          echo "skipped: ${n:-0}"
+          if [ "${n:-0}" -ne 0 ]; then
+            echo "::error::${n} test(s) skipped in CI. Everything they need is installed here — a skip means a guard misfired, and a green build is hiding it."
+            exit 1
+          fi
+
+  # prism is a data reader, so its worst failure mode is choking on ADVERSARIAL data — a giant file, a
+  # pathologically deep or wide structure, a malformed blob. `test` proves the bounds on small inputs;
+  # this proves the process actually SURVIVES hostile ones end-to-end (bytes-capped, depth-capped, no
+  # OOM, no hang), through the real CLI, in bounded wall-clock. A bound that only holds in a unit test
+  # but not through the shell is not a bound.
+  adversarial:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: a hostile blob must be refused or bounded — never OOM, never hang
+        run: |
+          set -e
+          # 1) a file far over the cap is refused up front, fast, without being read into memory
+          node -e 'const{writeFileSync}=require("fs");writeFileSync("/tmp/huge.json","["+Array.from({length:3_000_000},(_,i)=>i).join(",")+"]")'
+          timeout 20 node src/cli.js shape /tmp/huge.json --max-bytes 1000000 2>&1 | grep -q "caps input" \
+            || { echo "::error::an over-cap file was not refused"; exit 1; }
+          # 2) but a within-cap million-element array still shapes fast (sampled, not walked)
+          timeout 20 node src/cli.js shape /tmp/huge.json | grep -q '"len": 3000000' \
+            || { echo "::error::a large within-cap array did not shape"; exit 1; }
+          # 3) a deeply nested blob does not blow the stack — it truncates
+          node -e 'let s="1";for(let i=0;i<20000;i++)s="["+s+"]";process.stdout.write(s)' > /tmp/deep.json
+          timeout 20 node src/cli.js shape /tmp/deep.json --depth 5 | grep -q '"truncated": true' \
+            || { echo "::error::deep nesting did not truncate safely"; exit 1; }
+          # 4) malformed input is a clean error, not a crash (exit 1, message on stderr)
+          if echo '{ not json' | node src/cli.js shape - 2>/tmp/err.txt; then
+            echo "::error::malformed JSON did not exit non-zero"; exit 1
+          fi
+          grep -q "invalid JSON" /tmp/err.txt || { echo "::error::malformed JSON had no clear message"; exit 1; }
+          echo "all adversarial inputs bounded ✓"
