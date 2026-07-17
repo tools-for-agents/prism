@@ -61,3 +61,60 @@ jobs:
           fi
           grep -q "invalid JSON" /tmp/err.txt || { echo "::error::malformed JSON had no clear message"; exit 1; }
           echo "all adversarial inputs bounded ✓"
+
+  # LOOKING is part of the build. `test` proves the logic; a suite does not look at the page. This
+  # renders the web view WITH a real document loaded — the shape tree, the reader, the value pane —
+  # and audits it at phone/tablet/desktop against the kit's design system (tokens: kit, strict). The
+  # first pass already caught two real defects the DOM checks were blind to: the tree rows were
+  # clickable but not keyboard-reachable (unreachable-control), and a render wiped the welcome node
+  # out from under an async restore. The eye stopped both.
+  look:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: serve it, then drive it to a LOADED document
+        run: |
+          node src/cli.js serve --port 7970 &
+          for i in $(seq 30); do curl -sf http://localhost:7970/api/health >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:7970/api/health >/dev/null || { echo "::error::prism serve did not start"; exit 1; }
+      - uses: tools-for-agents/iris@main
+        with:
+          url: http://localhost:7970/
+          viewports: phone,tablet,desktop
+          name: prism-view
+          tokens: kit      # the kit's ONE design system — iris/tokens.json, not a copy
+          strict: true
+          # every interactive surface, hovered — a hover state JS cannot pose is a state nothing renders
+          hover: '.btn, .btn.ghost, #find, #src, .row, .crumb .copy'
+          pre: >-
+            const wait=async(sel,ms=9000)=>{const t=Date.now()+ms;while(Date.now()<t){if(document.querySelector(sel))return;await new Promise(r=>setTimeout(r,50));}throw new Error('timed out waiting for '+sel);};document.getElementById('sample').click();await wait('#treewrap .row');await wait('#readerbody pre.val');
+
+  # THE EMPTY STATE IS THE ONE STATE EVERY NEW USER SEES FIRST. The `look` job seeds a document on
+  # purpose; a gate that has only ever seen data is a screenshot of a room that is never empty. This
+  # renders the view with NOTHING loaded — exactly what a new user gets — and demands the welcome
+  # actually renders rather than a blank pane.
+  first-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: serve it EMPTY, as a new user gets it
+        run: |
+          node src/cli.js serve --port 7970 &
+          for i in $(seq 30); do curl -sf http://localhost:7970/api/health >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:7970/api/current | grep -q '"empty":true' || { echo "::error::a fresh serve should have no document"; exit 1; }
+      - uses: tools-for-agents/iris@main
+        with:
+          url: http://localhost:7970/
+          viewports: phone,tablet,desktop
+          name: prism-empty
+          tokens: kit
+          strict: true
+          hover: '.btn, .btn.ghost, textarea, #src'
+          pre: >-
+            const shown=(e)=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return !!e&&s.visibility!=='hidden'&&s.display!=='none'&&r.width>0&&r.height>0;};if(!shown(document.getElementById('welcome')))throw new Error('a new user with no data must see the welcome, not a blank reader pane');

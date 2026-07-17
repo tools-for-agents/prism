@@ -9,7 +9,7 @@ import { shape, read, find } from './core.js';
 import { readSource, parseData, PrismError, human } from './load.js';
 
 const [, , cmd, ...rest] = process.argv;
-const VALUE = new Set(['--path', '--tokens', '--max-bytes', '--depth', '--keys', '--format', '-k', '--limit']);
+const VALUE = new Set(['--path', '--tokens', '--max-bytes', '--depth', '--keys', '--format', '-k', '--limit', '--port']);
 const positionals = []; const flags = {};
 for (let i = 0; i < rest.length; i++) {
   const a = rest[i];
@@ -43,6 +43,9 @@ const HELP = `prism — read structured data the way an agent needs it: the shap
   flags:  --path P  --tokens N (read budget)  --depth N  --keys N  --max-bytes N
           --format json|jsonl  -k N (find hits)  --raw (value only)
 
+  prism serve [--port 7970]           the web view — paste a blob, explore its shape
+  prism mcp                           the stdio MCP server (JSON-RPC)
+
   echo '{"a":{"b":[1,2,3]}}' | prism shape -
   prism read api.json --path data.users[*].email
   prism find config.json "timeout"`;
@@ -55,6 +58,10 @@ try {
   // stdin the server needs for its JSON-RPC stream. The server starts on import and stays alive.
   if (cmd === 'mcp') {
     await import('../mcp/mcp-server.js');
+  } else if (cmd === 'serve') {
+    // the data-reader web view — a local http server that holds one blob in RAM (no store, no disk)
+    const { serve } = await import('./server.js');
+    serve(flags['--port'] != null ? Math.floor(+flags['--port']) : undefined);
   } else {
 
   const src = positionals[0] ?? '-';
