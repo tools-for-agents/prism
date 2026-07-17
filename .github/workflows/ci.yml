@@ -118,3 +118,46 @@ jobs:
           hover: '.btn, .btn.ghost, textarea, #src'
           pre: >-
             const shown=(e)=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return !!e&&s.visibility!=='hidden'&&s.display!=='none'&&r.width>0&&r.height>0;};if(!shown(document.getElementById('welcome')))throw new Error('a new user with no data must see the welcome, not a blank reader pane');
+
+  # CAN THE TEST SUITE STILL FAIL? `test` proves the code is right; this proves something is still
+  # WATCHING. It breaks src/core.js and src/load.js on purpose in the exact places whose breakage
+  # would cost the most — int≠float, the depth/key/token/node bounds, the byte cap — and demands the
+  # suite goes RED for each. A surviving canary means the test guarding that line stopped guarding it.
+  mutants:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: break it on purpose — every canary must die
+        run: node scripts/mutants.mjs
+
+  # WHAT DOES THE VIEW DO WHEN THE SERVER SAYS NO? A tool with exactly one way to show "nothing" makes
+  # three different truths — you loaded nothing, the load failed, the server is down — render as the
+  # same picture. --boot makes every /api/ call fail; the page must SAY the load failed (the error is
+  # shown) and must NOT fake a document — it keeps the welcome rather than pretend it has data.
+  dead-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - name: serve it — the API will be made to fail from the browser
+        run: |
+          node src/cli.js serve --port 7970 &
+          for i in $(seq 30); do curl -sf http://localhost:7970/ >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:7970/ >/dev/null || { echo "::error::prism serve did not start"; exit 1; }
+      - uses: tools-for-agents/iris@main
+        with:
+          url: http://localhost:7970/
+          viewports: phone,desktop
+          name: prism-dead-api
+          tokens: kit
+          boot: >-
+            const f=window.fetch;window.fetch=(u,o)=>String(u).includes('/api/')?Promise.resolve(new Response('{"error":"the server said no"}',{status:500,headers:{'content-type':'application/json'}})):f(u,o);
+          pre: >-
+            const wait=async(f,ms=6000)=>{const t=Date.now()+ms;while(Date.now()<t){if(f())return;await new Promise(r=>setTimeout(r,50));}throw new Error('timed out waiting for the error to show');};document.getElementById('paste').value='{"a":1}';document.getElementById('shapeit').click();const err=document.getElementById('err');await wait(()=>!err.hidden&&err.textContent.trim());const shown=(e)=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return !!e&&s.visibility!=='hidden'&&s.display!=='none'&&r.width>0&&r.height>0;};if(!shown(document.getElementById('welcome')))throw new Error('the API failed, the page hid the welcome and rendered nothing honest instead of the error');
