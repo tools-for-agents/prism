@@ -67,15 +67,15 @@ try {
     // compare TWO blobs → the paths that changed. Two sources, not one, so it is handled here.
     if (positionals.length < 2) { console.error('prism: diff needs two sources — e.g. `prism diff before.json after.json`'); process.exit(2); }
     const o = opts();
-    const A = await readSource(positionals[0], o); const av = parseData(A.text, o).value;
-    const B = await readSource(positionals[1], o); const bv = parseData(B.text, o).value;
+    const A = await readSource(positionals[0], o); const av = parseData(A.text, { ...o, format: o.format || A.format }).value;
+    const B = await readSource(positionals[1], o); const bv = parseData(B.text, { ...o, format: o.format || B.format }).value;
     out(diff(av, bv, o));
   } else {
 
   const src = positionals[0] ?? '-';
   const o = opts();
-  const { text, bytes, source } = await readSource(src, o);
-  const { value, format } = parseData(text, o);
+  const { text, bytes, source, format: fmt } = await readSource(src, o);
+  const { value, format } = parseData(text, { ...o, format: o.format || fmt });
 
   if (cmd === 'shape') {
     const sh = shape(value, o);

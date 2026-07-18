@@ -40,7 +40,7 @@ const digest = () => current && {
 // Load a blob (posted inline, or a file/URL to read) into `current`, and hand back its shape.
 async function load(body, q) {
   const o = optsFrom(q);
-  let text, bytes, source;
+  let text, bytes, source, fmt;
   if (body && body.length) {
     text = body;
     bytes = Buffer.byteLength(text);
@@ -48,11 +48,11 @@ async function load(body, q) {
     if (bytes > cap) throw new PrismError(`that blob is ${human(bytes)}; prism caps input at ${human(cap)}.`);
     source = 'pasted';
   } else if (q.source) {
-    ({ text, bytes, source } = await readSource(q.source, o));
+    ({ text, bytes, source, format: fmt } = await readSource(q.source, o));
   } else {
     throw new PrismError('paste a JSON/JSONL blob, or give a ?source= file path or URL');
   }
-  const { value, format } = parseData(text, o);
+  const { value, format } = parseData(text, { ...o, format: o.format || fmt });
   current = { value, bytes, format, tokens: estTokens(text), source };
   return { meta: digest(), shape: shape(value, o) };
 }

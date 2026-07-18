@@ -37,7 +37,7 @@ const SRC_PROPS = {
   data: { type: 'string', description: 'The JSON or JSONL text to read, inline. Use this when you already hold the blob (e.g. another tool returned it).' },
   source: { type: 'string', description: 'Alternatively, a file path, an http(s) URL, or "-" for stdin.' },
   max_bytes: { type: 'integer', description: `Refuse input larger than this many bytes before parsing (default ${DEFAULTS.maxBytes}).` },
-  format: { type: 'string', enum: ['json', 'jsonl'], description: 'Force the parse format; by default prism auto-detects JSON vs JSONL.' },
+  format: { type: 'string', enum: ['json', 'jsonl', 'csv', 'tsv'], description: 'Force the parse format. JSON vs JSONL auto-detect; CSV/TSV must be chosen here (or come from a .csv/.tsv source), and become an array of row objects keyed by the header.' },
 };
 
 const tools = [
@@ -80,7 +80,7 @@ const tools = [
       left: { type: 'string', description: 'The first (before) JSON or JSONL blob, inline.' },
       right: { type: 'string', description: 'The second (after) JSON or JSONL blob, inline.' },
       max_bytes: { type: 'integer', description: `Refuse either blob if larger than this many bytes (default ${DEFAULTS.maxBytes}).` },
-      format: { type: 'string', enum: ['json', 'jsonl'], description: 'Force the parse format for both blobs; by default each is auto-detected.' },
+      format: { type: 'string', enum: ['json', 'jsonl', 'csv', 'tsv'], description: 'Force the parse format for both blobs; JSON/JSONL auto-detect, CSV/TSV must be set here.' },
       k: { type: 'integer', description: `Max changes to return (default ${DEFAULTS.maxHits}); the summary counts are always complete.` },
     }, required: ['left', 'right'] },
     run: async (a) => {

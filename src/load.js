@@ -5,12 +5,13 @@
 import { readFileSync, statSync } from 'node:fs';
 import { DEFAULTS } from './core.js';
 
-// Read a source to a string, capped. Returns { text, bytes, source }.
+// Read a source to a string, capped. Returns { text, bytes, source, format } — `format` is the hint
+// the filename implies (csv/tsv/jsonl), or undefined for stdin and extension-less names.
 export async function readSource(src, opts = {}) {
   const cap = opts.maxBytes ?? DEFAULTS.maxBytes;
-  if (src === '-' || src == null) return { ...(await readStdin(cap)), source: 'stdin' };
-  if (/^https?:\/\//i.test(src)) return { ...(await readUrl(src, cap)), source: src };
-  return { ...readFile(src, cap), source: src };
+  if (src === '-' || src == null) return { ...(await readStdin(cap)), source: 'stdin', format: undefined };
+  if (/^https?:\/\//i.test(src)) return { ...(await readUrl(src, cap)), source: src, format: formatFromName(src) };
+  return { ...readFile(src, cap), source: src, format: formatFromName(src) };
 }
 
 function readFile(path, cap) {
@@ -80,6 +81,12 @@ export function parseData(text, opts = {}) {
   const trimmed = text.trim();
   if (!trimmed) throw new PrismError('the input is empty — nothing to read');
   const forced = opts.format;
+  // CSV/TSV never auto-detects (too much looks like a comma-separated line) — it is chosen by the
+  // file extension or an explicit format. The header row names the columns; each later row is an
+  // object, so shape/read/find/diff all work on a spreadsheet exactly as they do on JSON.
+  if (forced === 'csv' || forced === 'tsv') {
+    return { value: parseCsv(text, { delimiter: forced === 'tsv' ? '\t' : ',' }), format: forced };
+  }
   if (forced !== 'jsonl') {
     try { return { value: JSON.parse(text), format: 'json' }; }
     catch (jsonErr) {
@@ -101,6 +108,61 @@ export function parseData(text, opts = {}) {
 }
 
 function safeParse(t) { try { JSON.parse(t); } catch (e) { return e; } return null; }
+
+// A zero-dependency RFC 4180 CSV/TSV parser. The header row names the columns; every later row
+// becomes an object keyed by those names. A quoted field ("...") may contain the delimiter, a
+// newline, and an escaped quote (""). Values stay STRINGS except a number that round-trips exactly
+// and true/false — a conservative coercion that never loses information ("007", "1.0", "1e3",
+// "Infinity" all stay strings), so a numeric id or price column reads as a number without guessing
+// at the ambiguous ones.
+export function parseCsv(text, { delimiter = ',' } = {}) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  const endField = () => { row.push(field); field = ''; };
+  const endRow = () => { endField(); rows.push(row); row = []; };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }   // "" → a literal quote
+        else inQuotes = false;
+      } else field += c;
+      continue;
+    }
+    if (c === '"' && field === '') inQuotes = true;        // a quote opens a field only at its start
+    else if (c === delimiter) endField();
+    else if (c === '\r') { /* fold CRLF into the \n */ }
+    else if (c === '\n') endRow();
+    else field += c;
+  }
+  if (field !== '' || row.length) endRow();                // flush a final row with no trailing newline
+  // A blank line parses as a single empty field; drop those, but keep a genuine all-empty-columns row.
+  const data = rows.filter((r) => !(r.length === 1 && r[0] === ''));
+  if (!data.length) return [];
+  const header = data[0];
+  return data.slice(1).map((r) => {
+    const obj = {};
+    for (let j = 0; j < header.length; j++) obj[header[j]] = coerceCell(r[j] ?? '');
+    return obj;
+  });
+}
+
+function coerceCell(s) {
+  if (s === 'true') return true;
+  if (s === 'false') return false;
+  if (s !== '') { const n = Number(s); if (Number.isFinite(n) && String(n) === s) return n; }
+  return s;
+}
+
+// The format a filename implies — csv/tsv are unmistakable, and .jsonl/.ndjson pin line-delimited
+// JSON that a single-line file would otherwise auto-detect as one value. .json falls through to the
+// normal auto-detect. Handles a URL's ?query / #fragment after the extension.
+export function formatFromName(name) {
+  const m = /\.(csv|tsv|jsonl|ndjson)(?:[?#]|$)/i.exec(String(name || ''));
+  if (!m) return undefined;
+  const ext = m[1].toLowerCase();
+  return ext === 'ndjson' ? 'jsonl' : ext;
+}
 
 // Turn whatever V8 gives into a line:col the agent can navigate to. Node's JSON error message has
 // drifted between versions: sometimes "(line N column N)", sometimes "at position N", sometimes

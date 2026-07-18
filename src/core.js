@@ -137,10 +137,13 @@ function mergeShapes(shapes) {
 // element of an array.  users.0.name  ·  users[0].name  ·  data.items[*].id
 export function parsePath(path) {
   if (path == null || path === '' || path === '$' || path === '.') return [];
+  // Accept a leading $ (the JSON-path root) so `$[0].email` and `[0].email` mean the same thing —
+  // it is also the form find/diff would print if the root drop ever regressed.
+  const p = String(path)[0] === '$' ? String(path).slice(1).replace(/^\./, '') : String(path);
   const acc = [];
   const re = /\[\*\]|\[\d+\]|[^.[\]]+/g;
   let m;
-  while ((m = re.exec(path))) {
+  while ((m = re.exec(p))) {
     const t = m[0];
     if (t === '[*]') acc.push({ wild: true });
     else if (/^\[\d+\]$/.test(t)) acc.push({ index: +t.slice(1, -1) });
@@ -250,7 +253,9 @@ export function find(value, query, opts = {}) {
         if (hits.length < o.maxHits) hits.push({ path, kind: 'value', type: k, preview: previewOf(v) });
       }
     } else if (k === 'array') {
-      for (let i = 0; i < v.length; i++) queue.push({ v: v[i], path: `${path}[${i}]`, key: null });
+      // At the root, an element path is `[i]`, not `$[i]` — the same "drop the $ at root" rule the
+      // object branch uses for keys, so a path find returns is one read() can actually resolve.
+      for (let i = 0; i < v.length; i++) queue.push({ v: v[i], path: path === '$' ? `[${i}]` : `${path}[${i}]`, key: null });
     } else if (k === 'object') {
       for (const key2 of Object.keys(v)) queue.push({ v: v[key2], path: path === '$' ? key2 : `${path}.${key2}`, key: key2 });
     }
@@ -305,7 +310,7 @@ export function diff(left, right, opts = {}) {
       const n = Math.max(a.length, b.length);
       for (let i = 0; i < n; i++) {
         if (truncated) break;
-        const p = `${path}[${i}]`;
+        const p = path === '$' ? `[${i}]` : `${path}[${i}]`;
         if (i >= a.length) record('added', p, undefined, b[i]);
         else if (i >= b.length) record('removed', p, a[i], undefined);
         else walk(a[i], b[i], p);

@@ -3,7 +3,7 @@
 // paths that read() can actually resolve), so a change that quietly breaks the contract goes red.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shape, read, find, parsePath, estTokens, DEFAULTS } from '../src/core.js';
+import { shape, read, find, diff, parsePath, estTokens, DEFAULTS } from '../src/core.js';
 
 // ── shape ────────────────────────────────────────────────────────────────────
 test('shape names the type of every scalar, and int vs float are distinct', () => {
@@ -163,6 +163,20 @@ test('find locates a VALUE by substring and reports its path and preview', () =>
   assert.ok(hit, 'the value should be found');
   assert.equal(hit.preview, 'b@x.com');
   assert.equal(read(doc, hit.path).value, 'b@x.com');
+});
+
+test('on an ARRAY root, find and diff emit paths read() can resolve — no bogus $ key', () => {
+  // regression: an array root produced `$[1].email`, and read() parsed the leading $ as a KEY and
+  // failed. It only bit array-root data (which CSV always is). find/diff drop the $ at root now.
+  const rows = [{ email: 'a@x' }, { email: 'b@x' }];
+  const fp = find(rows, 'b@x').hits[0].path;
+  assert.equal(fp, '[1].email');
+  assert.equal(read(rows, fp).found, true);
+  const dp = diff([{ v: 1 }], [{ v: 2 }]).changes[0].path;
+  assert.equal(dp, '[0].v');
+  assert.equal(read([{ v: 2 }], dp).value, 2);
+  // read also accepts the $-prefixed form
+  assert.equal(read(rows, '$[0].email').value, 'a@x');
 });
 
 test('find matches numbers EXACTLY so "1" does not also match "1000"', () => {

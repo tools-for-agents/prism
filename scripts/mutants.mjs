@@ -119,6 +119,24 @@ const CANARIES = [
     find: "if (!trimmed) throw new PrismError('the input is empty — nothing to read');",
     into: "if (false) throw new PrismError('the input is empty — nothing to read');",
   },
+  {
+    why: 'CSV coercion must ROUND-TRIP or stay a string — drop the String(n)===s check and "007" becomes 7 (leading zeros lost), "1.0" becomes 1 (a version turned into a number)',
+    file: 'src/load.js',
+    find: 'if (Number.isFinite(n) && String(n) === s) return n;',
+    into: 'if (Number.isFinite(n)) return n;',
+  },
+  {
+    why: 'csv/tsv is chosen, never auto-detected — skip the routing and a spreadsheet is fed to JSON.parse and errors',
+    file: 'src/load.js',
+    find: "if (forced === 'csv' || forced === 'tsv') {",
+    into: 'if (false) {',
+  },
+  {
+    why: 'a path find returns must be one read can resolve — at an ARRAY root the index is `[i]`, not `$[i]` (which read parses as a bogus $ key). It only bites array-root data, which CSV always is',
+    file: 'src/core.js',
+    find: 'path: path === \'$\' ? `[${i}]` : `${path}[${i}]`, key: null });',
+    into: 'path: path === \'#\' ? `[${i}]` : `${path}[${i}]`, key: null });',
+  },
 ];
 
 // spawnSync returns status:null when IT kills the child for exceeding the timeout — a TIMEOUT, not a

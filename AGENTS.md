@@ -28,6 +28,8 @@ the feature is too big — ship the smaller version.
 - `diff <a> <b>` — the **paths** that changed between two blobs (added / removed / changed), by structure not by text; node- and hit-bounded, summary counts always complete.
 
 `<src>` is a file, an `http(s)` URL, or `-` (stdin). Paths: `data.items[0].name`, `users[*].id`, `$`.
+Formats: JSON/JSONL auto-detect; **CSV/TSV** from a `.csv`/`.tsv` source or `--format csv` → an array of row
+objects keyed by the header, with conservative coercion (a number only if it round-trips exactly).
 
 ## The rules this repo is built on
 
