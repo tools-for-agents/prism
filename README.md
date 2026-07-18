@@ -1,8 +1,8 @@
 # 🔻 prism
 
-**The agent's data reader.** Point it at a JSON or JSONL blob — a file, a URL, or a string you already
-hold — and get back its **shape** and the **slice you asked for**, never the whole thing. What scout does
-for a web page and lens does for a source file, prism does for structured data.
+**The agent's data reader.** Point it at a JSON, JSONL, CSV, or TSV blob — a file, a URL, or a string you
+already hold — and get back its **shape** and the **slice you asked for**, never the whole thing. What scout
+does for a web page and lens does for a source file, prism does for structured data.
 
 Part of [tools-for-agents](https://github.com/tools-for-agents). Zero dependencies — the Node standard
 library and nothing else. CLI + web view + MCP.

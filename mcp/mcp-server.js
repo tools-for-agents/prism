@@ -43,7 +43,7 @@ const SRC_PROPS = {
 const tools = [
   {
     name: 'prism_shape',
-    description: 'Get the SHAPE of a JSON/JSONL blob — keys→types, array lengths, nesting — instead of the whole thing. The skeleton of a 500 KB API response is a few hundred tokens. int vs float are distinguished, a key not present in every array element is marked optional, and deep/wide structures are depth- and key-bounded so the shape stays small. Start here, then prism_read the paths you care about.',
+    description: 'Get the SHAPE of a JSON, JSONL, CSV, or TSV blob — keys→types, array lengths, nesting — instead of the whole thing. The skeleton of a 500 KB API response is a few hundred tokens. int vs float are distinguished, a key not present in every array element is marked optional, and deep/wide structures are depth- and key-bounded so the shape stays small. Start here, then prism_read the paths you care about.',
     inputSchema: { type: 'object', properties: {
       ...SRC_PROPS,
       depth: { type: 'integer', description: `How deep to descend before truncating (default ${DEFAULTS.maxDepth}).` },
@@ -53,7 +53,7 @@ const tools = [
   },
   {
     name: 'prism_read',
-    description: 'Read the value at a PATH inside a JSON/JSONL blob, token-budgeted. Paths look like data.users[0].email or items[*].id ([*] maps over an array); a half-open slice items[0:10] (or [:10] / [100:]) takes just a window of a big array — bounds clamp, so [0:10] on a short array is fine. An index or slice bound may be NEGATIVE to count from the end: logs[-1] is the last element, logs[-20:] the last twenty. If the value fits the budget you get it verbatim; if it is too big you get its shape plus the honest size, so you can narrow the path — a slice or an index — and read again, never a silent truncation. A wrong path is reported (where it fell off, and the type actually there), not thrown.',
+    description: 'Read the value at a PATH inside a JSON, JSONL, CSV, or TSV blob, token-budgeted. Paths look like data.users[0].email or items[*].id ([*] maps over an array); a half-open slice items[0:10] (or [:10] / [100:]) takes just a window of a big array — bounds clamp, so [0:10] on a short array is fine. An index or slice bound may be NEGATIVE to count from the end: logs[-1] is the last element, logs[-20:] the last twenty. If the value fits the budget you get it verbatim; if it is too big you get its shape plus the honest size, so you can narrow the path — a slice or an index — and read again, never a silent truncation. A wrong path is reported (where it fell off, and the type actually there), not thrown.',
     inputSchema: { type: 'object', properties: {
       ...SRC_PROPS,
       path: { type: 'string', description: 'The path to read, e.g. "data.items[0].name", "users[*].id", "logs[0:20]" (a slice), "logs[-1]" (last element), or "$" for the root.' },
@@ -65,7 +65,7 @@ const tools = [
   },
   {
     name: 'prism_find',
-    description: 'Find where a key or value lives inside a JSON/JSONL blob — returns the PATHS (the input to prism_read), breadth-first so the shallowest matches come first. Matches key names by substring and scalar values (strings by substring, numbers/bools exactly, so "1" does not match "1000"). Node- and hit-bounded: on a huge document it stops and tells you the result may be partial.',
+    description: 'Find where a key or value lives inside a JSON, JSONL, CSV, or TSV blob — returns the PATHS (the input to prism_read), breadth-first so the shallowest matches come first. Matches key names by substring and scalar values (strings by substring, numbers/bools exactly, so "1" does not match "1000"). Node- and hit-bounded: on a huge document it stops and tells you the result may be partial.',
     inputSchema: { type: 'object', properties: {
       ...SRC_PROPS,
       query: { type: 'string', description: 'The key name or value to look for.' },
@@ -75,7 +75,7 @@ const tools = [
   },
   {
     name: 'prism_diff',
-    description: 'Compare TWO JSON/JSONL blobs and get back the PATHS that changed — added, removed, or a scalar that moved — with a summary count of each. It walks the structure (objects by key, arrays by index; a value that changed type counts as changed), NOT a line diff of the pretty-printed text, so a reordered or reformatted-but-equal document reads as identical. Node- and hit-bounded. Use it to see what differs between two API responses, two configs, or a before and after.',
+    description: 'Compare TWO blobs — JSON, JSONL, CSV, or TSV — and get back the PATHS that changed — added, removed, or a scalar that moved — with a summary count of each. It walks the structure (objects by key, arrays by index; a value that changed type counts as changed), NOT a line diff of the pretty-printed text, so a reordered or reformatted-but-equal document reads as identical. Node- and hit-bounded. Use it to see what differs between two API responses, two configs, or a before and after.',
     inputSchema: { type: 'object', properties: {
       left: { type: 'string', description: 'The first (before) JSON or JSONL blob, inline.' },
       right: { type: 'string', description: 'The second (after) JSON or JSONL blob, inline.' },
