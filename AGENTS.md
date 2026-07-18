@@ -27,7 +27,7 @@ the feature is too big — ship the smaller version.
 - `find <src> "<query>"` — the **paths** where a key/value lives (the input to `read`).
 - `diff <a> <b>` — the **paths** that changed between two blobs (added / removed / changed), by structure not by text; node- and hit-bounded, summary counts always complete.
 
-`<src>` is a file, an `http(s)` URL, or `-` (stdin). Paths: `data.items[0].name`, `users[*].id`, `$`.
+`<src>` is a file, an `http(s)` URL, or `-` (stdin). Paths: `data.items[0].name`, `users[*].id`, `logs[0:20]` (a slice; `[:20]`/`[100:]` too, bounds clamp), `$`.
 Formats: JSON/JSONL auto-detect; **CSV/TSV** from a `.csv`/`.tsv` source or `--format csv` → an array of row
 objects keyed by the header, with conservative coercion (a number only if it round-trips exactly).
 

@@ -98,6 +98,14 @@ test('parsePath handles dotted keys, [n] indexes, bare-number indexes and [*] wi
   assert.deepEqual(parsePath(''), []);
 });
 
+test('parsePath reads [a:b] slices with either bound optional', () => {
+  assert.deepEqual(parsePath('users[0:10]'), [{ key: 'users' }, { slice: [0, 10] }]);
+  assert.deepEqual(parsePath('users[:20].level'), [{ key: 'users' }, { slice: [null, 20] }, { key: 'level' }]);
+  assert.deepEqual(parsePath('rows[100:]'), [{ key: 'rows' }, { slice: [100, null] }]);
+  assert.deepEqual(parsePath('rows[:]'), [{ key: 'rows' }, { slice: [null, null] }]);
+  assert.deepEqual(parsePath('$[0:2]'), [{ slice: [0, 2] }]);     // slice straight off an array root
+});
+
 // ── read ─────────────────────────────────────────────────────────────────────
 const doc = { data: { users: [{ id: 1, email: 'a@x.com' }, { id: 2, email: 'b@x.com' }] }, meta: { n: 2 } };
 
@@ -114,6 +122,28 @@ test('read with [*] maps over an array and collects the tail path from each elem
   assert.equal(r.found, true);
   assert.deepEqual(r.value, ['a@x.com', 'b@x.com']);
   assert.equal(r.count, 2);
+});
+
+test('read with [a:b] takes a half-open slice and still collects the tail', () => {
+  const big = { xs: Array.from({ length: 12 }, (_, i) => ({ id: i })) };
+  assert.deepEqual(read(big, 'xs[0:3]').value.map((o) => o.id), [0, 1, 2]);   // first three
+  assert.deepEqual(read(big, 'xs[:2].id').value, [0, 1]);                     // open start + a tail path
+  assert.deepEqual(read(big, 'xs[10:]').value.map((o) => o.id), [10, 11]);    // open end (tail of the array)
+  assert.equal(read(big, 'xs[0:3]').count, 3);                                // a slice reports its count
+});
+
+test('a slice is a "give me up to N", so out-of-range bounds CLAMP instead of erroring', () => {
+  const big = { xs: Array.from({ length: 3 }, (_, i) => i) };
+  assert.deepEqual(read(big, 'xs[0:100]').value, [0, 1, 2]);   // end past the array → the whole array, not an error
+  assert.deepEqual(read(big, 'xs[5:9]').value, []);            // start past the array → empty, not out-of-range
+  // ...but an INDEX still asserts existence — the two must not be confused.
+  assert.equal(read(big, 'xs[9]').found, false);
+});
+
+test('a slice on a non-array is a located error, not a swallowed exception', () => {
+  const r = read({ a: 5 }, 'a[0:2]');
+  assert.equal(r.found, false);
+  assert.match(r.error, /expected array for a slice, found int/);
 });
 
 test('read of the root ($) returns the whole value when small', () => {

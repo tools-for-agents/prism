@@ -78,6 +78,12 @@ const CANARIES = [
     into: 'if (false) out.push(r.value); // elements that don\'t have the tail are simply skipped',
   },
   {
+    why: 'a slice CLAMPS its end to the array — drop the clamp and users[0:100] on a short array walks off the end, gathering an undefined for every index that never existed',
+    file: 'src/core.js',
+    find: 'const e = a.slice[1] == null ? value.length : Math.min(a.slice[1], value.length);',
+    into: 'const e = a.slice[1] == null ? value.length : a.slice[1];',
+  },
+  {
     why: 'an empty query is REFUSED, not run — otherwise it "matches" every string in the document and calls a mistake a result',
     file: 'src/core.js',
     find: "if (!q) return { query: String(query ?? ''), hits: [], matched: 0, error: 'empty query' };",

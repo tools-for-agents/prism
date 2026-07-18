@@ -134,20 +134,24 @@ function mergeShapes(shapes) {
 
 // ── path parsing & resolution ────────────────────────────────────────────────
 // Grammar (small on purpose): dot-separated keys, [n] for an array index, [*] to map over every
-// element of an array.  users.0.name  ·  users[0].name  ·  data.items[*].id
+// element of an array, and [a:b] to take a half-open slice of one (either bound optional).
+//   users.0.name  ·  users[0].name  ·  data.items[*].id  ·  users[0:10]  ·  logs[:20].level  ·  rows[100:]
 export function parsePath(path) {
   if (path == null || path === '' || path === '$' || path === '.') return [];
   // Accept a leading $ (the JSON-path root) so `$[0].email` and `[0].email` mean the same thing —
   // it is also the form find/diff would print if the root drop ever regressed.
   const p = String(path)[0] === '$' ? String(path).slice(1).replace(/^\./, '') : String(path);
   const acc = [];
-  const re = /\[\*\]|\[\d+\]|[^.[\]]+/g;
+  const re = /\[\*\]|\[\d+\]|\[\d*:\d*\]|[^.[\]]+/g;
   let m;
   while ((m = re.exec(p))) {
     const t = m[0];
     if (t === '[*]') acc.push({ wild: true });
     else if (/^\[\d+\]$/.test(t)) acc.push({ index: +t.slice(1, -1) });
-    else if (/^\d+$/.test(t)) acc.push({ index: +t }); // bare number segment = index
+    else if (/^\[\d*:\d*\]$/.test(t)) {           // [a:b], [:b], [a:], [:] — bounds are optional
+      const [s, e] = t.slice(1, -1).split(':');
+      acc.push({ slice: [s === '' ? null : +s, e === '' ? null : +e] });
+    } else if (/^\d+$/.test(t)) acc.push({ index: +t }); // bare number segment = index
     else acc.push({ key: t });
   }
   return acc;
@@ -165,6 +169,20 @@ function resolve(value, acc, i = 0, trail = '') {
     for (let j = 0; j < value.length; j++) {
       const r = resolve(value[j], acc, i + 1, `${trail}[${j}]`);
       if (r.ok) out.push(r.value); // elements that don't have the tail are simply skipped
+    }
+    return { ok: true, value: out, collected: true };
+  }
+  if (a.slice) {
+    // A slice is [*] over a window: same collect-the-tail behaviour, only the index range differs. Bounds
+    // are CLAMPED to the array, so users[0:10] on a 3-element array is the 3, not an error — a slice is a
+    // "give me up to this many", not an assertion the elements exist (unlike [n], which does assert).
+    if (!Array.isArray(value)) return { ok: false, at: trail || '$', want: 'array for a slice', got: kindOf(value) };
+    const s = a.slice[0] == null ? 0 : Math.min(a.slice[0], value.length);
+    const e = a.slice[1] == null ? value.length : Math.min(a.slice[1], value.length);
+    const out = [];
+    for (let j = s; j < e; j++) {
+      const r = resolve(value[j], acc, i + 1, `${trail}[${j}]`);
+      if (r.ok) out.push(r.value);
     }
     return { ok: true, value: out, collected: true };
   }

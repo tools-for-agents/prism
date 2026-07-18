@@ -52,7 +52,8 @@ prism find  config.json "timeout"                       # where does 'timeout' l
 | `prism diff <a> <b>` | the **paths** that changed — added / removed / changed | what differs between two responses, configs, or a before and after |
 
 **Sources** (`<src>`): a file path, an `http(s)://` URL, or `-` for stdin. **Paths**: `data.items[0].name`,
-`users[*].id` (`[*]` maps over an array), `$` for the root. **Formats**: JSON and JSONL/NDJSON auto-detect;
+`users[*].id` (`[*]` maps over an array), `logs[0:20]` (a half-open slice — `[:20]` / `[100:]` too, bounds
+clamp), `$` for the root. **Formats**: JSON and JSONL/NDJSON auto-detect;
 **CSV and TSV** come from a `.csv`/`.tsv` source or `--format csv` (the header row names the columns, so a
 spreadsheet becomes an array of row objects that `shape`/`read`/`find`/`diff` all work on).
 
