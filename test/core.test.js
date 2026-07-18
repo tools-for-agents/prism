@@ -146,6 +146,29 @@ test('a slice on a non-array is a located error, not a swallowed exception', () 
   assert.match(r.error, /expected array for a slice, found int/);
 });
 
+test('parsePath accepts negative indices and negative slice bounds', () => {
+  assert.deepEqual(parsePath('logs[-1]'), [{ key: 'logs' }, { index: -1 }]);
+  assert.deepEqual(parsePath('logs[-3:]'), [{ key: 'logs' }, { slice: [-3, null] }]);
+  assert.deepEqual(parsePath('logs[:-1]'), [{ key: 'logs' }, { slice: [null, -1] }]);
+  assert.deepEqual(parsePath('logs[-3:-1]'), [{ key: 'logs' }, { slice: [-3, -1] }]);
+});
+
+test('a negative index counts from the end, and a negative slice bound does too', () => {
+  const big = { xs: Array.from({ length: 12 }, (_, i) => i) };
+  assert.equal(read(big, 'xs[-1]').value, 11);                    // last element
+  assert.equal(read(big, 'xs[-12]').value, 0);                    // first, reached from the end
+  assert.deepEqual(read(big, 'xs[-3:]').value, [9, 10, 11]);      // the last three
+  assert.deepEqual(read(big, 'xs[:-10]').value, [0, 1]);          // all but the last ten
+  assert.deepEqual(read(big, 'xs[-100:]').value, big.xs);         // a negative start past the front clamps to 0
+});
+
+test('an out-of-range negative index is a located error naming the valid window', () => {
+  const r = read({ xs: [1, 2, 3] }, 'xs[-9]');
+  assert.equal(r.found, false);
+  assert.match(r.error, /index in \[-3, 3\)/);       // both bounds named, so the agent knows the window
+  assert.match(r.error, /out of range/);
+});
+
 test('read of the root ($) returns the whole value when small', () => {
   const r = read({ a: 1 }, '$');
   assert.equal(r.found, true);

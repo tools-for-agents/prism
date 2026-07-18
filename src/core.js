@@ -134,24 +134,25 @@ function mergeShapes(shapes) {
 
 // ── path parsing & resolution ────────────────────────────────────────────────
 // Grammar (small on purpose): dot-separated keys, [n] for an array index, [*] to map over every
-// element of an array, and [a:b] to take a half-open slice of one (either bound optional).
-//   users.0.name  ·  users[0].name  ·  data.items[*].id  ·  users[0:10]  ·  logs[:20].level  ·  rows[100:]
+// element of an array, and [a:b] to take a half-open slice of one (either bound optional). An index or
+// a slice bound may be NEGATIVE to count from the end — [-1] is the last element, [-3:] the last three.
+//   users.0.name  ·  users[0].name  ·  data.items[*].id  ·  logs[-1]  ·  users[0:10]  ·  events[-20:].type
 export function parsePath(path) {
   if (path == null || path === '' || path === '$' || path === '.') return [];
   // Accept a leading $ (the JSON-path root) so `$[0].email` and `[0].email` mean the same thing —
   // it is also the form find/diff would print if the root drop ever regressed.
   const p = String(path)[0] === '$' ? String(path).slice(1).replace(/^\./, '') : String(path);
   const acc = [];
-  const re = /\[\*\]|\[\d+\]|\[\d*:\d*\]|[^.[\]]+/g;
+  const re = /\[\*\]|\[-?\d+\]|\[-?\d*:-?\d*\]|[^.[\]]+/g;
   let m;
   while ((m = re.exec(p))) {
     const t = m[0];
     if (t === '[*]') acc.push({ wild: true });
-    else if (/^\[\d+\]$/.test(t)) acc.push({ index: +t.slice(1, -1) });
-    else if (/^\[\d*:\d*\]$/.test(t)) {           // [a:b], [:b], [a:], [:] — bounds are optional
+    else if (/^\[-?\d+\]$/.test(t)) acc.push({ index: +t.slice(1, -1) });   // [n] or [-n] (from the end)
+    else if (/^\[-?\d*:-?\d*\]$/.test(t)) {       // [a:b], [:b], [a:], [:], [-3:] — bounds optional & may be negative
       const [s, e] = t.slice(1, -1).split(':');
       acc.push({ slice: [s === '' ? null : +s, e === '' ? null : +e] });
-    } else if (/^\d+$/.test(t)) acc.push({ index: +t }); // bare number segment = index
+    } else if (/^\d+$/.test(t)) acc.push({ index: +t }); // bare number segment = index (positive only — a bare -1 is a key)
     else acc.push({ key: t });
   }
   return acc;
@@ -177,8 +178,12 @@ function resolve(value, acc, i = 0, trail = '') {
     // are CLAMPED to the array, so users[0:10] on a 3-element array is the 3, not an error — a slice is a
     // "give me up to this many", not an assertion the elements exist (unlike [n], which does assert).
     if (!Array.isArray(value)) return { ok: false, at: trail || '$', want: 'array for a slice', got: kindOf(value) };
-    const s = a.slice[0] == null ? 0 : Math.min(a.slice[0], value.length);
-    const e = a.slice[1] == null ? value.length : Math.min(a.slice[1], value.length);
+    // Bounds normalise Python-style: a negative counts from the end (-3 → n-3), then clamp to [0, n]. So
+    // logs[-20:] is "the last 20 (or fewer)" and logs[:-1] is "all but the last", with no off-by-one at the ends.
+    const n = value.length;
+    const norm = (x, dflt) => x == null ? dflt : (x < 0 ? Math.max(0, n + x) : Math.min(x, n));
+    const s = norm(a.slice[0], 0);
+    const e = norm(a.slice[1], n);
     const out = [];
     for (let j = s; j < e; j++) {
       const r = resolve(value[j], acc, i + 1, `${trail}[${j}]`);
@@ -188,8 +193,13 @@ function resolve(value, acc, i = 0, trail = '') {
   }
   if (a.index != null) {
     if (!Array.isArray(value)) return { ok: false, at: trail || '$', want: 'array', got: kindOf(value) };
-    if (a.index >= value.length) return { ok: false, at: `${trail}[${a.index}]`, want: `index < ${value.length}`, got: 'out of range' };
-    return resolve(value[a.index], acc, i + 1, `${trail}[${a.index}]`);
+    // A negative index counts from the end (-1 = last). Unlike a slice, an index ASSERTS the element exists,
+    // so an out-of-range index (either direction) is a located error, not a silent miss.
+    const idx = a.index < 0 ? value.length + a.index : a.index;
+    if (idx < 0 || idx >= value.length) {
+      return { ok: false, at: `${trail}[${a.index}]`, want: `index in [-${value.length}, ${value.length})`, got: 'out of range' };
+    }
+    return resolve(value[idx], acc, i + 1, `${trail}[${idx}]`);
   }
   // key
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {

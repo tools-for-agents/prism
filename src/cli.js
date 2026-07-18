@@ -40,7 +40,7 @@ const HELP = `prism — read structured data the way an agent needs it: the shap
   prism find  <file|url|-> "<query>"  where a key or value lives → the paths to read
   prism diff  <a> <b>                 what changed between two blobs → the paths (added/removed/changed)
 
-  paths:  data.items[0].name   ·   users[*].id   ·   logs[0:20] (a slice)   ·   $ (the root)
+  paths:  data.items[0].name   ·   users[*].id   ·   logs[0:20] (slice)   ·   logs[-1] (last)   ·   $ (root)
   flags:  --path P  --tokens N (read budget)  --depth N  --keys N  --max-bytes N
           --format json|jsonl  -k N (find hits)  --raw (value only)
 

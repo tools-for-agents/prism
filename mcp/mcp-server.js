@@ -53,10 +53,10 @@ const tools = [
   },
   {
     name: 'prism_read',
-    description: 'Read the value at a PATH inside a JSON/JSONL blob, token-budgeted. Paths look like data.users[0].email or items[*].id ([*] maps over an array); a half-open slice items[0:10] (or [:10] / [100:]) takes just a window of a big array — bounds clamp, so [0:10] on a short array is fine. If the value fits the budget you get it verbatim; if it is too big you get its shape plus the honest size, so you can narrow the path — a slice or an index — and read again, never a silent truncation. A wrong path is reported (where it fell off, and the type actually there), not thrown.',
+    description: 'Read the value at a PATH inside a JSON/JSONL blob, token-budgeted. Paths look like data.users[0].email or items[*].id ([*] maps over an array); a half-open slice items[0:10] (or [:10] / [100:]) takes just a window of a big array — bounds clamp, so [0:10] on a short array is fine. An index or slice bound may be NEGATIVE to count from the end: logs[-1] is the last element, logs[-20:] the last twenty. If the value fits the budget you get it verbatim; if it is too big you get its shape plus the honest size, so you can narrow the path — a slice or an index — and read again, never a silent truncation. A wrong path is reported (where it fell off, and the type actually there), not thrown.',
     inputSchema: { type: 'object', properties: {
       ...SRC_PROPS,
-      path: { type: 'string', description: 'The path to read, e.g. "data.items[0].name", "users[*].id", "logs[0:20]" (a slice), or "$" for the root.' },
+      path: { type: 'string', description: 'The path to read, e.g. "data.items[0].name", "users[*].id", "logs[0:20]" (a slice), "logs[-1]" (last element), or "$" for the root.' },
       tokens: { type: 'integer', description: `Token budget for the returned value (default ${DEFAULTS.budget}); over budget returns the shape instead.` },
     }, required: ['path'] },
     // NB: only set an override when the arg is present — spreading `budget: undefined` would clobber

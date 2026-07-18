@@ -53,7 +53,8 @@ prism find  config.json "timeout"                       # where does 'timeout' l
 
 **Sources** (`<src>`): a file path, an `http(s)://` URL, or `-` for stdin. **Paths**: `data.items[0].name`,
 `users[*].id` (`[*]` maps over an array), `logs[0:20]` (a half-open slice — `[:20]` / `[100:]` too, bounds
-clamp), `$` for the root. **Formats**: JSON and JSONL/NDJSON auto-detect;
+clamp), `logs[-1]` (a negative index counts from the end — `[-20:]` is the last twenty), `$` for the root.
+**Formats**: JSON and JSONL/NDJSON auto-detect;
 **CSV and TSV** come from a `.csv`/`.tsv` source or `--format csv` (the header row names the columns, so a
 spreadsheet becomes an array of row objects that `shape`/`read`/`find`/`diff` all work on).
 
