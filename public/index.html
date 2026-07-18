@@ -85,6 +85,9 @@
     background-repeat:no-repeat; background-position:10px center; }
   .findbar input::placeholder { color:var(--faint); }
   .findbar input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent); }
+  /* The "read a path" box reuses the find input's tokens; it carries no search glyph (it navigates,
+     it does not search) and sits in mono because a path is code. */
+  #gotopath { margin-top:8px; background-image:none; padding:8px 12px; font-family:var(--mono); font-size:12px; }
   .findbar[hidden] { display:none; }
 
   .treewrap { flex:1; overflow:auto; padding:8px 12px 24px; }
@@ -188,6 +191,7 @@
 
     <div class="findbar" id="findbar" hidden>
       <input id="find" placeholder="find a key or value → paths" spellcheck="false" aria-label="Find a key or value" />
+      <input id="gotopath" placeholder="read a path → users[0:10] · logs[-1] · $" spellcheck="false" aria-label="Read the value at a path" />
     </div>
 
     <div class="hint" id="hint">
@@ -396,6 +400,14 @@
     const q = e.target.value.trim();
     findTimer = setTimeout(() => doFind(q), 180);
   });
+
+  // Read the value at a typed path — the one thing clicking the tree cannot reach: a slice (users[0:10]),
+  // a from-the-end index (logs[-1]), a wildcard (items[*].id). readPath already resolves the whole grammar
+  // and reports a bad path honestly, so the box just hands it the text; empty means the root.
+  $('#gotopath').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); readPath(e.target.value.trim() || '$'); }
+  });
+
   async function doFind(q) {
     if (!q) { readPath('$'); return; }
     const seq = ++readerSeq;

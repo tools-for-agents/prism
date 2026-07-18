@@ -87,9 +87,10 @@ npm run mcp             # the MCP server, stdio JSON-RPC
 ### The web view
 
 `prism serve [--port 7970]` opens a single-file explorer: paste a blob (or point at a file or URL), see its
-**shape** as a collapsible tree, click any node to **read** the value at its path (token-budgeted), **find**
-a key or value across the whole document, and **Compare ⟷** it against a second blob to **diff** them (added
-/ removed / changed paths). A **read as** selector declares the format — `auto` sniffs JSON vs JSONL, and
+**shape** as a collapsible tree, click any node to **read** the value at its path (token-budgeted) — or type a
+path (`users[0:10]`, `logs[-1]`) to reach a slice or an element the tree can't click to — **find** a key or
+value across the whole document, and **Compare ⟷** it against a second blob to **diff** them (added / removed
+/ changed paths). A **read as** selector declares the format — `auto` sniffs JSON vs JSONL, and
 because a spreadsheet can't be sniffed apart from prose you pick **CSV** / **TSV** to read a pasted sheet as
 an array of row objects (the same knob rides the file/URL load and the compare blob). It holds one document
 in RAM — no store, nothing written to disk.
