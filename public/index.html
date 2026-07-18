@@ -314,11 +314,18 @@
   }
 
   // ── Read a path ──────────────────────────────────────────────────────────────
+  // Every async write to #readerbody (read, diff, find) takes a ticket first. A response
+  // may only paint if its ticket is still the newest — so a read fired during load can
+  // never land on top of a diff the user asked for afterwards. Without this, whichever
+  // fetch happened to resolve last won, and the pane showed a stale state at random.
+  let readerSeq = 0;
   async function readPath(path) {
+    const seq = ++readerSeq;
     try {
       const r = await api('/api/read?path=' + encodeURIComponent(path) + '&tokens=1200');
+      if (seq !== readerSeq) return;   // a newer reader render superseded this one in flight
       renderReader(path, r);
-    } catch (e) { showErr(e.message); }
+    } catch (e) { if (seq === readerSeq) showErr(e.message); }
   }
 
   function renderReader(path, r) {
@@ -360,8 +367,10 @@
   });
   async function doFind(q) {
     if (!q) { readPath('$'); return; }
+    const seq = ++readerSeq;
     try {
       const r = await api('/api/find?q=' + encodeURIComponent(q) + '&k=40');
+      if (seq !== readerSeq) return;
       $('#welcome').hidden = true;
       const body = $('#readerbody');
       if (!r.hits.length) { body.innerHTML = `<div class="rmeta">no key or value matches “${esc(q)}”.</div>`; return; }
@@ -375,7 +384,7 @@
         row.addEventListener('click', go);
         row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
       });
-    } catch (e) { showErr(e.message); }
+    } catch (e) { if (seq === readerSeq) showErr(e.message); }
   }
 
   // ── Compare / diff ────────────────────────────────────────────────────────────
@@ -388,8 +397,12 @@
     const text = $('#paste-b').value.trim();
     if (!text) { showErr('paste a second blob to compare'); return; }
     showErr('');
-    try { renderDiff(await api('/api/diff', { method: 'POST', body: text })); }
-    catch (e) { showErr(e.message); }   // e.g. "nothing loaded yet — load a blob first"
+    const seq = ++readerSeq;
+    try {
+      const r = await api('/api/diff', { method: 'POST', body: text });
+      if (seq !== readerSeq) return;
+      renderDiff(r);
+    } catch (e) { if (seq === readerSeq) showErr(e.message); }   // e.g. "nothing loaded yet — load a blob first"
   }
   function renderDiff(r) {
     $('#welcome').hidden = true;
