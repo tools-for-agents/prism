@@ -69,6 +69,10 @@ nothing on disk. It is dark-committed on the kit design system (`tokens: kit` �
 {4,8,12,999} radii, 4.5:1 contrast), so it passes the strict `look` gate. The tree rows are real controls:
 keyboard-reachable (`tabindex`/`role`/Enter-Space) with a focus ring — iris caught them clickable-but-not-
 reachable on the first look, and caught a render wiping the welcome node from under an async restore.
+A **read as** selector maps to `?format=` on `/api/load` and `/api/diff`: `auto` sends nothing (server sniffs
+JSON/JSONL), CSV/TSV are declared outright since a sheet can't be auto-detected. The load's courtesy `$`-read
+takes a `readerSeq` ticket up front and stands down if a diff/read superseded it — else, because a re-render
+restores the prior doc's tree, an in-flight auto-read buried the diff and flaked the `look-diff` gate.
 
 ## CI
 

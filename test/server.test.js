@@ -98,6 +98,33 @@ test('/api/diff compares the loaded document against a second posted blob', asyn
   assert.equal(by['xs[2]'], 'added');
 });
 
+// The web view's CSV path: a pasted spreadsheet can't be sniffed (a comma line looks like prose), so the
+// browser declares it with ?format=csv — the same knob the new "read as" selector drives. Without it a
+// CSV paste dies as "not valid JSON"; with it, a header row becomes keys and each row an object.
+test('/api/load?format=csv reads a pasted spreadsheet as rows — the web view CSV knob', async () => {
+  const { code, body } = await load('id,name,active\n1,Ada,true\n2,Alan,false\n', '?format=csv');
+  assert.equal(code, 200);
+  assert.equal(body.meta.format, 'csv');
+  assert.equal(body.shape.type, 'array');
+  assert.equal(body.shape.len, 2);
+  assert.equal(body.shape.of.fields.id.type, 'int');       // conservative coercion still applies over HTTP
+  assert.equal(body.shape.of.fields.active.type, 'bool');
+  // and a path find returns is one read can resolve, at the array root CSV always has
+  const row = await get('/api/read?path=' + encodeURIComponent('$[0]'));
+  assert.equal(row.body.found, true);
+  assert.deepEqual(row.body.value, { id: 1, name: 'Ada', active: true });
+});
+
+// The compare blob rides the same knob: a CSV diffed against a CSV, both declared, both parsed as rows.
+test('/api/diff?format=tsv reads the compare blob as a spreadsheet too', async () => {
+  await load('a\tb\n1\t2\n', '?format=tsv');
+  const r = await fetch(base + '/api/diff?format=tsv', { method: 'POST', body: 'a\tb\n1\t9\n' });
+  const d = await r.json();
+  assert.equal(r.status, 200);
+  assert.equal(d.changed, 1);                 // b: 2 -> 9 in the single row
+  assert.equal(d.changes[0].path, '[0].b');
+});
+
 test('an unknown /api endpoint is a clean 404, not a hang', async () => {
   const { code } = await get('/api/nope');
   assert.equal(code, 404);
