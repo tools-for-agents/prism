@@ -24,6 +24,13 @@ test('a fresh server reports the EMPTY state honestly, not a fake document', asy
   assert.equal(body.empty, true);
 });
 
+// Runs before any load() below, so `current` is still empty — /api/diff must refuse cleanly.
+test('/api/diff before anything is loaded is a clean 400, not a crash', async () => {
+  const r = await fetch(base + '/api/diff', { method: 'POST', body: '{"a":1}' });
+  assert.equal(r.status, 400);
+  assert.match((await r.json()).error, /nothing loaded/);
+});
+
 test('loading a blob returns its shape and a digest — and never the blob itself', async () => {
   const { code, body } = await load('{"page":2,"users":[{"id":1,"email":"a@x.com"},{"id":2,"email":"b@x.com"}]}');
   assert.equal(code, 200);
@@ -77,6 +84,18 @@ test('the static server serves the app at / and refuses a path-traversal', async
   const bad = await fetch(base + '/../../package.json');   // must not escape public/
   const txt = await bad.text();
   assert.doesNotMatch(txt, /"name": "@tools-for-agents\/prism"/);
+});
+
+test('/api/diff compares the loaded document against a second posted blob', async () => {
+  await load('{"a":1,"b":2,"xs":[1,2]}');
+  const r = await fetch(base + '/api/diff', { method: 'POST', body: '{"a":1,"b":9,"xs":[1,2,3],"c":true}' });
+  const d = await r.json();
+  assert.equal(r.status, 200);
+  assert.equal(d.changed, 1);          // b
+  assert.equal(d.added, 2);            // xs[2], c
+  const by = Object.fromEntries(d.changes.map((c) => [c.path, c.kind]));
+  assert.equal(by.b, 'changed');
+  assert.equal(by['xs[2]'], 'added');
 });
 
 test('an unknown /api endpoint is a clean 404, not a hang', async () => {

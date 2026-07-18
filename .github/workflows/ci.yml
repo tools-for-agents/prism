@@ -92,6 +92,33 @@ jobs:
           pre: >-
             const wait=async(sel,ms=9000)=>{const t=Date.now()+ms;while(Date.now()<t){if(document.querySelector(sel))return;await new Promise(r=>setTimeout(r,50));}throw new Error('timed out waiting for '+sel);};document.getElementById('sample').click();await wait('#treewrap .row');await wait('#readerbody pre.val');
 
+  # THE DIFF VIEW is a distinct rendered state the `look` gate never reaches. It has its own colours
+  # (added / removed / changed) and its own change rows, and a hover state nothing else poses. This
+  # drives the compare flow — load one blob, paste a second, press Diff — and audits the change list
+  # against the same strict design system, so the diff view cannot drift off the tokens on its own.
+  look-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: serve it, then drive the compare / diff flow
+        run: |
+          node src/cli.js serve --port 7970 &
+          for i in $(seq 30); do curl -sf http://localhost:7970/api/health >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:7970/api/health >/dev/null || { echo "::error::prism serve did not start"; exit 1; }
+      - uses: tools-for-agents/iris@main
+        with:
+          url: http://localhost:7970/
+          viewports: phone,tablet,desktop
+          name: prism-diff
+          tokens: kit
+          strict: true
+          hover: '.btn, #diffit, .row'
+          pre: >-
+            const wait=async(sel,ms=9000)=>{const t=Date.now()+ms;while(Date.now()<t){if(document.querySelector(sel))return;await new Promise(r=>setTimeout(r,50));}throw new Error('timed out waiting for '+sel);};document.getElementById('paste').value='{"page":1,"total":100,"user":{"name":"Ada","active":true},"tags":["x","y"]}';document.getElementById('shapeit').click();await wait('#treewrap .row');document.getElementById('comparetoggle').click();document.getElementById('paste-b').value='{"page":1,"total":250,"user":{"name":"Ada","active":false},"tags":["x","y","z"],"cursor":"ab12"}';document.getElementById('diffit').click();await wait('#readerbody .dk');
+
   # THE EMPTY STATE IS THE ONE STATE EVERY NEW USER SEES FIRST. The `look` job seeds a document on
   # purpose; a gate that has only ever seen data is a screenshot of a room that is never empty. This
   # renders the view with NOTHING loaded — exactly what a new user gets — and demands the welcome

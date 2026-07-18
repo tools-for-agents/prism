@@ -86,8 +86,9 @@ npm run mcp             # the MCP server, stdio JSON-RPC
 
 `prism serve [--port 7970]` opens a single-file explorer: paste a JSON/JSONL blob (or point at a file or
 URL), see its **shape** as a collapsible tree, click any node to **read** the value at its path
-(token-budgeted), and **find** a key or value across the whole document. It holds one document in RAM —
-no store, nothing written to disk.
+(token-budgeted), **find** a key or value across the whole document, and **Compare ⟷** it against a second
+blob to **diff** them (added / removed / changed paths). It holds one document in RAM — no store, nothing
+written to disk.
 
 ### MCP
 

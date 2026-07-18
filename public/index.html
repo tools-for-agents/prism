@@ -64,6 +64,11 @@
   .btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .err { margin-top:8px; color:var(--err); font-size:12px; font-family:var(--mono); }
   .err[hidden] { display:none; }
+  .compare[hidden] { display:none; }
+  .compare textarea { height:64px; margin-top:8px; }
+  .dk { font-family:var(--mono); font-weight:600; flex:none; width:12px; text-align:center; }
+  .d-add { color:var(--ok); } .d-rem { color:var(--err); } .d-chg { color:var(--accent); }
+  .rmeta .d-add { color:var(--ok); } .rmeta .d-rem { color:var(--err); } .rmeta .d-chg { color:var(--accent); }
 
   .findbar { padding:12px 20px; border-bottom:1px solid var(--line); }
   .findbar input { width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line-2);
@@ -154,6 +159,11 @@
       <div class="btnrow">
         <button class="btn" id="shapeit">Shape it</button>
         <button class="btn ghost" id="sample">Try a sample</button>
+        <button class="btn ghost" id="comparetoggle" aria-expanded="false">Compare ⟷</button>
+      </div>
+      <div class="compare" id="compare" hidden>
+        <textarea id="paste-b" placeholder="…the OTHER blob — diff it against the one loaded above" spellcheck="false" aria-label="Second blob to compare"></textarea>
+        <div class="btnrow"><button class="btn" id="diffit">Diff →</button></div>
       </div>
       <div class="err" id="err" hidden></div>
     </div>
@@ -367,6 +377,43 @@
       });
     } catch (e) { showErr(e.message); }
   }
+
+  // ── Compare / diff ────────────────────────────────────────────────────────────
+  $('#comparetoggle').addEventListener('click', () => {
+    const c = $('#compare'); c.hidden = !c.hidden;
+    $('#comparetoggle').setAttribute('aria-expanded', String(!c.hidden));
+    if (!c.hidden) $('#paste-b').focus();
+  });
+  async function doDiff() {
+    const text = $('#paste-b').value.trim();
+    if (!text) { showErr('paste a second blob to compare'); return; }
+    showErr('');
+    try { renderDiff(await api('/api/diff', { method: 'POST', body: text })); }
+    catch (e) { showErr(e.message); }   // e.g. "nothing loaded yet — load a blob first"
+  }
+  function renderDiff(r) {
+    $('#welcome').hidden = true;
+    const body = $('#readerbody');
+    if (r.identical) { body.innerHTML = `<div class="rmeta">the two blobs are <b>identical</b> — no changes.</div>`; return; }
+    const wh = r.withheld ? ` <span class="over">(+${r.withheld} more)</span>` : '';
+    const tr = r.truncated ? ` <span class="over">(partial)</span>` : '';
+    body.innerHTML = `<div class="rmeta"><span class="d-add">+${r.added} added</span> · <span class="d-rem">−${r.removed} removed</span> · <span class="d-chg">~${r.changed} changed</span>${wh}${tr}</div>`
+      + r.changes.map((c) => {
+        const sign = c.kind === 'added' ? '+' : c.kind === 'removed' ? '−' : '~';
+        const cls = c.kind === 'added' ? 'd-add' : c.kind === 'removed' ? 'd-rem' : 'd-chg';
+        const val = c.kind === 'changed'
+          ? `${esc(JSON.stringify(c.from))} <span class="ty">→</span> ${esc(JSON.stringify(c.to))}`
+          : esc(JSON.stringify(c.kind === 'added' ? c.to : c.from));
+        return `<div class="row" data-path="${esc(c.path)}" tabindex="0" role="button" aria-label="read ${esc(c.path)}">`
+          + `<span class="tw leaf"></span><span class="dk ${cls}">${sign}</span> <span class="p" style="font-family:var(--mono)">${esc(c.path)}</span> <span class="val">${val}</span></div>`;
+      }).join('');
+    body.querySelectorAll('.row[data-path]').forEach((row) => {
+      const go = () => readPath(row.dataset.path);
+      row.addEventListener('click', go);
+      row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
+  }
+  $('#diffit').addEventListener('click', doDiff);
 
   // ── Sample ───────────────────────────────────────────────────────────────────
   const SAMPLE = {

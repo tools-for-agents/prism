@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname, normalize, sep } from 'node:path';
-import { shape, read, find, estTokens, DEFAULTS } from './core.js';
+import { shape, read, find, diff, estTokens, DEFAULTS } from './core.js';
 import { readSource, parseData, PrismError, human } from './load.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -59,6 +59,25 @@ async function load(body, q) {
 
 const needDoc = () => { if (!current) throw new PrismError('nothing loaded yet — load a blob first'); };
 
+// Diff the loaded document (the LEFT / before) against a second blob posted inline or read from a
+// ?source=. The loaded doc is the baseline you were exploring; this shows what a second one changed.
+async function diffAgainst(body, q) {
+  needDoc();
+  const o = optsFrom(q);
+  let text, fmt;
+  if (body && body.length) {
+    text = body;
+    const cap = o.maxBytes ?? DEFAULTS.maxBytes;
+    if (Buffer.byteLength(text) > cap) throw new PrismError(`that blob is ${human(Buffer.byteLength(text))}; prism caps input at ${human(cap)}.`);
+  } else if (q.source) {
+    ({ text, format: fmt } = await readSource(q.source, o));
+  } else {
+    throw new PrismError('paste a second blob to compare, or give a ?source=');
+  }
+  const right = parseData(text, { ...o, format: o.format || fmt }).value;
+  return diff(current.value, right, o);
+}
+
 const api = {
   'GET /api/health': () => ({ ok: true, service: 'prism', ts: new Date().toISOString() }),
   'GET /api/current': () => (current ? { meta: digest(), shape: shape(current.value, {}) } : { empty: true }),
@@ -104,6 +123,10 @@ export function serve(port = +process.env.PRISM_PORT || 7970) {
       if (req.method === 'POST' && u.pathname === '/api/load') {
         const body = await readBody(req);
         return json(res, 200, await load(body, q));
+      }
+      if (req.method === 'POST' && u.pathname === '/api/diff') {
+        const body = await readBody(req);
+        return json(res, 200, await diffAgainst(body, q));
       }
       const handler = api[route];
       if (handler) return json(res, 200, await handler(q));
