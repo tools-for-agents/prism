@@ -226,6 +226,12 @@
   }
   async function doLoad(opts, qs = '') {
     showErr('');
+    // A load ends by auto-reading $ as a convenience — but that read fires only AFTER the network
+    // round-trip, so if you asked for a diff (or clicked a node) while it loaded, the auto-read would
+    // land last and stomp what you actually asked for. Claim the reader now; drop the courtesy read
+    // if something newer took it. (This is what made look-diff flake: on a re-render the tree was
+    // already there from restore, the wait fell through, and the still-loading auto-read buried the diff.)
+    const seq = ++readerSeq;
     try {
       const r = await api('/api/load' + qs, opts);
       setMeta(r.meta);
@@ -234,6 +240,7 @@
       $('#findbar').hidden = false;
       $('#hint').hidden = true;
       $('#treewrap').hidden = false;
+      if (seq !== readerSeq) return;   // a diff or an explicit read superseded this load's auto-view
       readPath('$');
     } catch (e) { showErr(e.message); }
   }
