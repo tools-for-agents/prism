@@ -18,6 +18,7 @@
   "files": [
     "src",
     "mcp",
+    "public",
     "README.md",
     "LICENSE"
   ],
