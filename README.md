@@ -105,6 +105,33 @@ as `data`, or point at a file/URL with `source`:
   "arguments": { "data": "{\"user\":{\"email\":\"a@x.com\"}}", "path": "user.email" } }
 ```
 
+
+## The agent toolkit
+
+<!-- toolkit:start — generated from tools.json by tools-for-agents.github.io/build/toolkit-block.mjs; edit that, not this -->
+
+`prism` is the **read data** leg of **[tools-for-agents](https://tools-for-agents.github.io)** — an operating system for agents.
+Nine zero-dependency, MCP-native tools that form one loop, with a self at its centre:
+
+| | | |
+|---|---|---|
+| 🛰️ | [agent-hq](https://github.com/tools-for-agents/agent-hq) | coordinate — The company's work, made visible. |
+| 🔎 | [lens](https://github.com/tools-for-agents/lens) | read code — Read code without reading files. |
+| ⚒ | [anvil](https://github.com/tools-for-agents/anvil) | run safely — Run it before you claim it works. |
+| 🔐 | [keep](https://github.com/tools-for-agents/keep) | hold secrets — Use a secret without holding it. |
+| 🧠 | [cortex](https://github.com/tools-for-agents/cortex) | remember — A second brain that outlives the context window. |
+| 🧭 | [scout](https://github.com/tools-for-agents/scout) | read the web — The web, ~90% lighter. |
+| 🔻 | **prism** | **read data** — Read data without reading the blob. |
+| ◎ | [recall](https://github.com/tools-for-agents/recall) | recall it all — One query. Every store you have. |
+| 👁 | [iris](https://github.com/tools-for-agents/iris) | see — Look at what you built. |
+| 👻 | [ghost](https://github.com/tools-for-agents/ghost) | *the self at the centre* — A self that persists across sessions. Not a tool: it is what the agent **is** while it calls these. |
+
+**Reading this as an agent?** [`/llms.txt`](https://tools-for-agents.github.io/llms.txt) is the map, and
+[`/tools.json`](https://tools-for-agents.github.io/tools.json) hands you all **79 MCP tools** — every name, every
+description, every install command — in **one fetch**, without cloning anything.
+
+<!-- toolkit:end -->
+
 ## License
 
 MIT
